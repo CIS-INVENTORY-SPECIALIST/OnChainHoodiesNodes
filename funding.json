@@ -1,0 +1,100 @@
+[
+  {
+    "size": 24,
+    "checked": 12,
+    "funder": null,
+    "hits": 0,
+    "conf": 0
+  },
+  {
+    "size": 21,
+    "checked": 12,
+    "funder": null,
+    "hits": 0,
+    "conf": 0
+  },
+  {
+    "size": 20,
+    "checked": 12,
+    "funder": "0x88a71c7ed67d4af34a566df53ae6d165b9bcad1b",
+    "hits": 11,
+    "conf": 92
+  },
+  {
+    "size": 19,
+    "checked": 12,
+    "funder": null,
+    "hits": 0,
+    "conf": 0
+  },
+  {
+    "size": 13,
+    "checked": 12,
+    "funder": "0x45421c3e3c879bf3697aed70a2f7fc9865a96361",
+    "hits": 12,
+    "conf": 100
+  },
+  {
+    "size": 5,
+    "checked": 5,
+    "funder": null,
+    "hits": 0,
+    "conf": 0
+  },
+  {
+    "size": 5,
+    "checked": 5,
+    "funder": null,
+    "hits": 0,
+    "conf": 0
+  },
+  {
+    "size": 4,
+    "checked": 4,
+    "funder": "0x8ef3ab2464b857aa886cbf88013c95c47b883bea",
+    "hits": 4,
+    "conf": 100
+  },
+  {
+    "size": 3,
+    "checked": 3,
+    "funder": "0x56c262027e0de4aea31d2489529cb25d23e58a8b",
+    "hits": 3,
+    "conf": 100
+  },
+  {
+    "size": 2,
+    "checked": 2,
+    "funder": "0xae752f2c1bd5da68eb2d9d0e32c29c8fe650bb8a",
+    "hits": 2,
+    "conf": 100
+  },
+  {
+    "size": 2,
+    "checked": 2,
+    "funder": null,
+    "hits": 0,
+    "conf": 0
+  },
+  {
+    "size": 2,
+    "checked": 2,
+    "funder": "0xd4e3f654c2a4b4bb778e712feb214e87d35b0f2d",
+    "hits": 2,
+    "conf": 100
+  },
+  {
+    "size": 2,
+    "checked": 2,
+    "funder": "0x8fe6045b2857545748b12fc472a793b99e8ee11e",
+    "hits": 2,
+    "conf": 100
+  },
+  {
+    "size": 2,
+    "checked": 2,
+    "funder": "0x8e2cff287faa48506d76834d54b4cf90b7881227",
+    "hits": 2,
+    "conf": 100
+  }
+]

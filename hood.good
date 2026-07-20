@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>THE HOOD · HOLDER GRAPH</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+:root{--lime:#ccff00;--bg:#000;--dim:#6b7a1f;--grey:#4a4a4a;--line:#1a1a1a}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
+  font-family:ui-monospace,'SF Mono',Menlo,monospace}
+#c{position:fixed;inset:0;width:100vw;height:100vh;display:block;cursor:grab}
+#c:active{cursor:grabbing}
+
+.hd{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 18px;background:rgba(0,0,0,.9);
+  border-bottom:1px solid var(--line);z-index:20}
+.hd .lg{font-size:15px;font-weight:700;letter-spacing:2px;color:var(--lime)}
+.hd .lg span{color:#fff;font-weight:400;letter-spacing:1px}
+.hd .rt{display:flex;gap:20px;align-items:center;font-size:10px;color:var(--grey);
+  letter-spacing:1.5px;text-transform:uppercase}
+.hd .rt b{color:var(--lime);font-weight:400}
+
+.sb{position:fixed;top:52px;left:0;bottom:0;width:236px;background:rgba(0,0,0,.94);
+  border-right:1px solid var(--line);z-index:15;overflow-y:auto;padding:16px 0 40px}
+#tribes::-webkit-scrollbar{width:4px}
+#tribes::-webkit-scrollbar-thumb{background:#2a2a2a}
+.sb::-webkit-scrollbar{width:5px}
+.sb::-webkit-scrollbar-thumb{background:#222}
+.sl{font-size:9px;letter-spacing:2px;color:var(--grey);text-transform:uppercase;
+  padding:0 16px 9px}
+.sl i{font-style:normal;color:var(--lime)}
+.sec{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:16px}
+.sec:last-child{border:none}
+
+#q{width:calc(100% - 32px);margin:0 16px;background:#0a0a0a;border:1px solid #222;
+  color:#e8e8e8;padding:9px 10px;font-family:inherit;font-size:11px;outline:none}
+#q:focus{border-color:var(--lime)}
+#qh{padding:10px 16px 0;font-size:10px;color:var(--grey);line-height:1.7}
+
+.tr{display:flex;align-items:center;gap:8px;padding:5px 16px;cursor:pointer;font-size:10px}
+.tr:hover{background:#0c0c0c}
+.tr.on{background:#131600}
+.tr .dot{width:8px;height:8px;flex:none}
+.tr .nm{flex:1;color:#b8b8b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tr.on .nm{color:var(--lime)}
+.tr .ct{color:var(--grey);font-size:9px}
+
+.nb{padding:7px 16px;border-bottom:1px solid #0f0f0f;cursor:pointer;font-size:10px}
+.nb:hover{background:#0c0c0c}
+.nb .a{color:var(--lime);margin-bottom:2px}
+.nb .m{color:var(--grey);font-size:9px;line-height:1.5}
+
+#tip{position:fixed;display:none;background:#050505;border:1px solid var(--lime);
+  padding:0;z-index:40;pointer-events:none;width:196px}
+#tip .th{display:flex;gap:8px;padding:9px;border-bottom:1px solid #1a1a1a;align-items:center}
+#tip img{width:40px;height:40px;image-rendering:pixelated;background:#000;flex:none}
+#tip .tn{font-size:11px;color:var(--lime);word-break:break-all;line-height:1.4}
+#tip .tb{padding:8px 9px;font-size:10px;color:#999;line-height:1.75}
+#tip .tb b{color:#e8e8e8;font-weight:400}
+#tip .tg{display:inline-block;background:#131600;border:1px solid #2d3600;
+  color:var(--lime);padding:1px 5px;font-size:9px;margin-top:3px}
+
+.lgd{position:fixed;bottom:14px;right:16px;font-size:9px;color:#333;text-align:right;
+  line-height:1.9;z-index:12;letter-spacing:.5px}
+.lgd b{color:var(--dim);font-weight:400}
+#ld{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#000;z-index:50;color:var(--lime);font-size:11px;letter-spacing:3px}
+</style></head><body>
+
+<div id="ld">ENTERING THE HOOD…</div>
+<canvas id="c"></canvas>
+
+<div class="hd">
+  <div class="lg">HOODIES<span> / HOLDER GRAPH</span></div>
+  <div class="rt">
+    <div>WALLETS <b id="s1">—</b></div>
+    <div>ENTITIES <b id="s2">—</b></div>
+    <div>LINKS <b id="s3">—</b></div>
+  </div>
+</div>
+
+<div class="sb">
+  <div class="sec">
+    <div class="sl"><i>01</i> / FIND YOUR NEIGHBORS</div>
+    <input id="q" placeholder="wallet or ens…" autocomplete="off">
+    <div id="qh">enter an address to see who collects like you</div>
+    <div id="nbs"></div>
+  </div>
+  <div class="sec">
+    <div class="sl"><i>02</i> / TRIBES <span id="tct" style="float:right;color:#4a4a4a"></span></div>
+    <div id="tribes" style="max-height:290px;overflow-y:auto"></div>
+  </div>
+  <div class="sec">
+    <div class="sl"><i>03</i> / SAME OPERATOR</div>
+    <div id="farms" style="padding:0 16px;font-size:10px;color:var(--grey);line-height:1.8"></div>
+  </div>
+</div>
+
+<div class="lgd">
+  SIZE <b>= HOODIES HELD</b><br>
+  LINK <b>= SHARED RARE COLLECTIONS</b><br>
+  RED RING <b>= MULTI-WALLET OPERATOR</b><br>
+  DRAG A NODE <b>= MOVE THE CLUSTER</b><br>DOUBLE-TAP A NODE <b>= OPEN PROFILE</b>
+</div>
+<div id="tip"></div>
+
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+let W=innerWidth,H=innerHeight,DPR=Math.min(devicePixelRatio||1,2);
+function size(){W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);}
+size();
+
+Promise.all([
+  fetch('graph.json').then(r=>r.json()),
+  fetch('tokens.json').then(r=>r.json()).catch(()=>({owners:{},farcaster:{}}))
+]).then(([G,T])=>{
+  const OWN=T.owners||{},FAR=T.farcaster||{};
+
+  const nodes=G.nodes.filter(n=>n.deg>0).map(n=>Object.assign({},n));
+  const keep=new Set(nodes.map(n=>n.i));
+  const rm=new Map(nodes.map((n,k)=>[n.i,k]));
+  const links=G.edges.filter(e=>keep.has(e.s)&&keep.has(e.t))
+    .map(e=>({source:rm.get(e.s),target:rm.get(e.t),w:e.w,n:e.n}));
+
+  // attach token id + socials
+  nodes.forEach(n=>{
+    if(n.token==null){
+      const o=OWN[n.a.toLowerCase()];
+      n.token=o&&o.ids&&o.ids.length?o.ids[0]:null;
+    }
+    if(n.fc==null)n.fc=FAR[n.a.toLowerCase()]||null;
+  });
+
+  document.getElementById('s1').textContent='1,699';
+  document.getElementById('s2').textContent=G.nodes.length;
+  document.getElementById('s3').textContent=links.length.toLocaleString();
+
+  // ---- tribes ----
+  const tc={};
+  nodes.forEach(n=>{if(n.tribe)tc[n.tribe]=(tc[n.tribe]||0)+1;});
+  const tribes=Object.entries(tc).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  const pal=d3.quantize(d3.interpolateRainbow,Math.max(3,Math.min(tribes.length,32)));
+  const cOf=n=>{const i=tribes.indexOf(n.tribe);return i<0?'#333':pal[i%pal.length];};
+
+  const tw=document.getElementById('tribes');
+  document.getElementById('tct').textContent=tribes.length;
+  let selTribe=null;
+  tribes.forEach((t,i)=>{
+    const d=document.createElement('div');
+    d.className='tr';
+    d.innerHTML='<span class="dot" style="background:'+pal[i%pal.length]+'"></span>'+
+      '<span class="nm">'+t+'</span><span class="ct">'+tc[t]+'</span>';
+    d.onclick=()=>{selTribe=selTribe===t?null:t;
+      [...tw.children].forEach(c=>c.classList.remove('on'));
+      if(selTribe)d.classList.add('on');draw();};
+    tw.appendChild(d);
+  });
+
+  const farms=G.nodes.filter(n=>n.wallets>1).sort((a,b)=>b.wallets-a.wallets);
+  document.getElementById('farms').innerHTML=
+    farms.length+' entities run multiple wallets<br>'+
+    'largest: '+farms.slice(0,4).map(f=>f.wallets+'w').join(' · ')+'<br>'+
+    '<span style="color:#ff5555">'+farms.reduce((s,f)=>s+f.wallets,0)+
+    ' wallets = '+farms.length+' people</span>';
+
+  const rad=n=>3+Math.sqrt(n.hoodies||1)*2.4;
+
+  // ---- hoodie sprites ----
+  const imgs=new Map();
+  let loaded=0;
+  nodes.forEach(n=>{
+    if(!n.token)return;
+    const im=new Image();
+    im.crossOrigin='anonymous';
+    im.onload=()=>{imgs.set(n.i,im);loaded++;if(loaded%40===0)draw();};
+    im.src='img/'+n.token+'.svg';
+  });
+
+  const sim=d3.forceSimulation(nodes)
+    .force('link',d3.forceLink(links).distance(d=>40*(1-d.w)+10).strength(d=>Math.min(d.w*1.7,.9)))
+    .force('charge',d3.forceManyBody().strength(-34).distanceMax(380))
+    .force('center',d3.forceCenter(W/2+110,H/2).strength(0.045))
+    .force('collide',d3.forceCollide(d=>rad(d)+2.5).strength(1).iterations(3))
+    .alphaDecay(0.015)
+    .velocityDecay(0.28);
+
+  // ambient float — never fully settles, gentle organic drift
+  let drifting=true;
+  sim.on('end',()=>{ if(drifting) sim.alphaTarget(0.012).restart(); });
+  setTimeout(()=>{ sim.alphaTarget(0.012).restart(); },2600);
+  setInterval(()=>{
+    if(!drifting||dragging)return;
+    for(const n of nodes){
+      n.vx += (Math.random()-0.5)*0.22;
+      n.vy += (Math.random()-0.5)*0.22;
+    }
+    sim.alpha(Math.max(sim.alpha(),0.02));
+  },1400);
+
+  let tf=d3.zoomIdentity.translate(110,0),hi=null,neigh=new Set(),dragging=false;
+  let dragStart=0,lastTap=0,lastNode=null;
+
+  function nodeAt(cx,cy){
+    const x=(cx-tf.x)/tf.k, y=(cy-tf.y)/tf.k;
+    let b=null,bd=1e9;
+    for(const n of nodes){
+      const dx=n.x-x, dy=n.y-y, d=dx*dx+dy*dy;
+      if(d<bd && d<Math.pow(rad(n)+7,2)){bd=d;b=n;}
+    }
+    return b;
+  }
+
+  // zoom, but let drag win when the pointer is over a node
+  const zoom=d3.zoom().scaleExtent([.58,9])
+    .filter(e=>{
+      if(e.type==='wheel')return true;
+      return nodeAt(e.clientX,e.clientY)===null;
+    })
+    .on('zoom',e=>{tf=e.transform;draw();});
+  d3.select(cv).call(zoom).on('dblclick.zoom',null);
+
+  // drag a node — its cluster lags behind and follows
+  d3.select(cv).call(d3.drag()
+    .subject(e=>nodeAt(e.sourceEvent.clientX,e.sourceEvent.clientY))
+    .on('start',e=>{
+      if(!e.subject)return;
+      dragging=true;
+      sim.velocityDecay(0.62);        // sluggish followers = visible trailing
+      sim.alphaTarget(0.55).restart(); // keep chasing the dragged node
+      dragStart=Date.now();
+      e.subject.fx=e.subject.x;
+      e.subject.fy=e.subject.y;
+      cv.style.cursor='grabbing';
+    })
+    .on('drag',e=>{
+      if(!e.subject)return;
+      e.subject.fx=(e.x-tf.x)/tf.k;
+      e.subject.fy=(e.y-tf.y)/tf.k;
+    })
+    .on('end',e=>{
+      if(!e.subject)return;
+      dragging=false;
+      sim.velocityDecay(0.28);
+      sim.alphaTarget(0.012);
+      e.subject.fx=null;
+      e.subject.fy=null;
+      cv.style.cursor='grab';
+      // treat a quick press with no movement as a click
+      if(Date.now()-dragStart<260){
+        const now=Date.now();
+        if(now-lastTap<340 && lastNode===e.subject){
+          window.open(e.subject.fc?'https://warpcast.com/'+e.subject.fc
+                                  :'https://opensea.io/'+e.subject.a,'_blank');
+          lastTap=0; lastNode=null;
+        } else { lastTap=now; lastNode=e.subject; }
+      }
+    }));
+
+  function dim(n){
+    if(selTribe&&n.tribe!==selTribe)return true;
+    if(neigh.size&&!neigh.has(n.i)&&hi!==n)return true;
+    return false;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.save();ctx.translate(tf.x,tf.y);ctx.scale(tf.k,tf.k);
+
+    for(const l of links){
+      const on=hi&&(l.source===hi||l.target===hi);
+      const d=dim(l.source)&&dim(l.target);
+      if(d&&!on)continue;
+      ctx.strokeStyle=on?'rgba(204,255,0,.85)':'rgba(140,150,110,'+(0.04+l.w*0.34)+')';
+      ctx.lineWidth=(on?1.5:.4)/tf.k;
+      ctx.beginPath();ctx.moveTo(l.source.x,l.source.y);
+      ctx.lineTo(l.target.x,l.target.y);ctx.stroke();
+    }
+
+    for(const n of nodes){
+      const r=rad(n),d=dim(n),on=hi===n;
+      ctx.globalAlpha=d?0.11:1;
+      const im=imgs.get(n.i);
+      if(im&&tf.k>0.55){
+        const s=r*2.1;
+        ctx.imageSmoothingEnabled=false;
+        ctx.drawImage(im,n.x-s/2,n.y-s/2,s,s);
+        if(on||n.wallets>1){
+          ctx.strokeStyle=n.wallets>1?'#ff3b3b':'var(--lime)';
+          ctx.strokeStyle=n.wallets>1?'#ff3b3b':'#ccff00';
+          ctx.lineWidth=1.4/tf.k;
+          ctx.strokeRect(n.x-s/2,n.y-s/2,s,s);
+        }
+      }else{
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,6.284);
+        ctx.fillStyle=on?'#ccff00':cOf(n);ctx.fill();
+        if(n.wallets>1){ctx.strokeStyle='#ff3b3b';ctx.lineWidth=1.2/tf.k;ctx.stroke();}
+      }
+      if(on||(tf.k>2.8&&n.hoodies>4)){
+        ctx.globalAlpha=1;
+        ctx.fillStyle='#ccff00';
+        ctx.font=(9/tf.k)+'px ui-monospace,monospace';
+        ctx.fillText(n.ens||n.a.slice(0,8),n.x+r+3/tf.k,n.y+3/tf.k);
+      }
+    }
+    ctx.globalAlpha=1;ctx.restore();
+  }
+  sim.on('tick',draw);
+  setTimeout(()=>document.getElementById('ld').style.display='none',900);
+  addEventListener('resize',()=>{size();draw();});
+
+  // ---- hover ----
+  const tip=document.getElementById('tip');
+  const pick=ev=>nodeAt(ev.clientX,ev.clientY);
+  cv.addEventListener('mousemove',ev=>{
+    if(dragging){draw();return;}
+    const b=pick(ev);hi=b;
+    if(b){
+      cv.style.cursor='pointer';
+      tip.style.display='block';
+      tip.style.left=Math.min(ev.clientX+14,W-210)+'px';
+      tip.style.top=Math.min(ev.clientY+14,H-160)+'px';
+      tip.innerHTML=
+        '<div class="th">'+(b.token?'<img src="img/'+b.token+'.svg">':'')+
+        '<div class="tn">'+(b.ens||b.a.slice(0,10)+'…'+b.a.slice(-4))+'</div></div>'+
+        '<div class="tb"><b>'+b.hoodies+'</b> hoodies · <b>'+b.cols+'</b> collections<br>'+
+        '<b>'+b.deg+'</b> neighbors'+
+        (b.wallets>1?'<br><span style="color:#ff3b3b">'+b.wallets+' linked wallets</span>':'')+
+        (b.tribe?'<br><span class="tg">'+b.tribe+'</span>':'')+
+        (b.fc?'<br><span style="color:#8a63d2">farcaster: '+b.fc+'</span>':'')+
+        '</div>';
+    }else{cv.style.cursor='grab';tip.style.display='none';}
+    draw();
+  });
+  cv.addEventListener('dblclick',e=>e.preventDefault());
+
+  // ---- find your neighbors ----
+  const nbs=document.getElementById('nbs'),qh=document.getElementById('qh');
+  document.getElementById('q').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase().trim();
+    nbs.innerHTML='';neigh=new Set();
+    if(!q){hi=null;qh.textContent='enter an address to see who collects like you';draw();return;}
+    const me=nodes.find(n=>(n.ens&&n.ens.toLowerCase().includes(q))||n.a.toLowerCase().includes(q));
+    if(!me){qh.textContent='not found in the connected graph';hi=null;draw();return;}
+    hi=me;neigh.add(me.i);
+    const mine=links.filter(l=>l.source===me||l.target===me)
+      .map(l=>({o:l.source===me?l.target:l.source,w:l.w,n:l.n}))
+      .sort((a,b)=>b.w-a.w).slice(0,10);
+    mine.forEach(m=>neigh.add(m.o.i));
+    qh.innerHTML='<span style="color:#ccff00">'+(me.ens||me.a.slice(0,10)+'…')+'</span> · '+
+      me.hoodies+' hoodies · '+me.deg+' neighbors';
+    mine.forEach(m=>{
+      const d=document.createElement('div');
+      d.className='nb';
+      d.innerHTML='<div class="a">'+(m.o.ens||m.o.a.slice(0,12)+'…')+'</div>'+
+        '<div class="m">'+m.n+' shared collections · '+(m.w*100).toFixed(0)+'% match'+
+        (m.o.tribe?' · '+m.o.tribe:'')+'</div>';
+      d.onclick=()=>window.open(m.o.fc?'https://warpcast.com/'+m.o.fc:'https://opensea.io/'+m.o.a,'_blank');
+      nbs.appendChild(d);
+    });
+    tf=d3.zoomIdentity.translate(W/2-me.x*2.6,H/2-me.y*2.6).scale(2.6);
+    draw();
+  });
+});
+</script></body></html>

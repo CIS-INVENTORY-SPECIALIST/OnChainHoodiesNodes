@@ -130,6 +130,16 @@ ents.forEach(e => {
 const nodes = ents.map(e => ({ i: e.id, a: e.a, ens: e.ens, wallets: e.wallets, hoodies: e.hoodies, cols: e.cols.length, deg: deg[e.id], str: +str[e.id].toFixed(3), tribe: tribe[e.id] }));
 fs.writeFileSync('graph.json', JSON.stringify({ nodes: nodes, edges: edges.slice(0, 15000) }));
 
+// collection -> entities index, for the collection lens
+const colIndex = [];
+for (const [addr, arr] of eidx) {
+  if (arr.length < 3) continue;
+  colIndex.push({ a: addr, n: names.get(addr) || addr.slice(0,10), k: arr.length, e: arr });
+}
+colIndex.sort((x,y) => y.k - x.k);
+fs.writeFileSync('collections.json', JSON.stringify(colIndex));
+console.log('collections index: ' + colIndex.length + ' collections held by 3+ entities');
+
 console.log('');
 console.log('connected entities: ' + nodes.filter(n => n.deg > 0).length + ' / ' + nodes.length);
 console.log('');

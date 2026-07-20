@@ -36,12 +36,18 @@ jobs:
       - name: cache svgs
         run: node cache_svgs.js
 
+      - name: og image
+        run: |
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+          node make_og.js
+
       - name: publish
         run: |
           rm -f key.txt
           rm -rf out && mkdir -p out
           cp hood.html out/index.html
-          cp graph.json tokens.json holders.json out/
+          cp graph.json tokens.json holders.json collections.json og.png logo.svg favicon.png out/
           cp -r img out/
           cd out
           git init -q

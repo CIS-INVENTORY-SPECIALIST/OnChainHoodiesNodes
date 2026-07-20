@@ -1,0 +1,15 @@
+const fs=require('fs');
+const T=JSON.parse(fs.readFileSync('tokens.json','utf8'));
+const H=JSON.parse(fs.readFileSync('holders.json','utf8'));
+const ids=new Set();
+for(const a in T.owners) for(const id of T.owners[a].ids) ids.add(id);
+const missing=[];
+for(let i=0;i<6000;i++) if(ids.has(i)===false) missing.push(i);
+console.log('tokens captured: '+ids.size+' / 6000');
+console.log('missing ids: '+missing.length+(missing.length?('  e.g. '+missing.slice(0,10).join(',')):''));
+const hset=new Set(H.map(h=>h.address.toLowerCase()));
+const tset=new Set(Object.keys(T.owners));
+let inHnotT=0; for(const a of hset) if(tset.has(a)===false) inHnotT++;
+let inTnotH=0; for(const a of tset) if(hset.has(a)===false) inTnotH++;
+console.log('in holders but no tokens: '+inHnotT);
+console.log('has tokens but not in holders: '+inTnotH);

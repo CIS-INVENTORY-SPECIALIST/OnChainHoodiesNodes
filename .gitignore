@@ -1,0 +1,5 @@
+key.txt
+.env
+node_modules/
+out/
+refresh.log

@@ -1,0 +1,53 @@
+name: refresh hood graph
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: key
+        run: echo "${{ secrets.ALCHEMY_KEY }}" > key.txt
+
+      - name: tokens + owners + socials
+        run: rm -f tokens.json && node l4b.js
+
+      - name: holders from tokens
+        run: node l1b.js
+
+      - name: holdings for new wallets
+        run: node layer2_holdings.js
+
+      - name: build graph
+        run: node layer3_overlap.js
+
+      - name: assign hoodies
+        run: node fixtok.js
+
+      - name: cache svgs
+        run: node cache_svgs.js
+
+      - name: publish
+        run: |
+          rm -f key.txt
+          rm -rf out && mkdir -p out
+          cp hood.html out/index.html
+          cp graph.json tokens.json holders.json out/
+          cp -r img out/
+          cd out
+          git init -q
+          git config user.name "hood-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git checkout -qb gh-pages
+          git add -A
+          git commit -qm "refresh $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages

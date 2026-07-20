@@ -21,6 +21,8 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 
 .sb{position:fixed;top:52px;left:0;bottom:0;width:236px;background:rgba(0,0,0,.94);
   border-right:1px solid var(--line);z-index:15;overflow-y:auto;padding:16px 0 40px}
+#tribes::-webkit-scrollbar{width:4px}
+#tribes::-webkit-scrollbar-thumb{background:#2a2a2a}
 .sb::-webkit-scrollbar{width:5px}
 .sb::-webkit-scrollbar-thumb{background:#222}
 .sl{font-size:9px;letter-spacing:2px;color:var(--grey);text-transform:uppercase;
@@ -84,8 +86,8 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
     <div id="nbs"></div>
   </div>
   <div class="sec">
-    <div class="sl"><i>02</i> / TRIBES</div>
-    <div id="tribes"></div>
+    <div class="sl"><i>02</i> / TRIBES <span id="tct" style="float:right;color:#4a4a4a"></span></div>
+    <div id="tribes" style="max-height:290px;overflow-y:auto"></div>
   </div>
   <div class="sec">
     <div class="sl"><i>03</i> / SAME OPERATOR</div>
@@ -97,7 +99,7 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
   SIZE <b>= HOODIES HELD</b><br>
   LINK <b>= SHARED RARE COLLECTIONS</b><br>
   RED RING <b>= MULTI-WALLET OPERATOR</b><br>
-  DRAG A NODE <b>= MOVE THE CLUSTER</b><br>DOUBLE-CLICK <b>= OPEN PROFILE</b>
+  DRAG A NODE <b>= MOVE THE CLUSTER</b><br>DOUBLE-TAP A NODE <b>= OPEN PROFILE</b>
 </div>
 <div id="tip"></div>
 
@@ -136,16 +138,17 @@ Promise.all([
   // ---- tribes ----
   const tc={};
   nodes.forEach(n=>{if(n.tribe)tc[n.tribe]=(tc[n.tribe]||0)+1;});
-  const tribes=Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,18).map(x=>x[0]);
-  const pal=d3.quantize(d3.interpolateRainbow,Math.max(3,tribes.length));
-  const cOf=n=>{const i=tribes.indexOf(n.tribe);return i<0?'#333':pal[i];};
+  const tribes=Object.entries(tc).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  const pal=d3.quantize(d3.interpolateRainbow,Math.max(3,Math.min(tribes.length,32)));
+  const cOf=n=>{const i=tribes.indexOf(n.tribe);return i<0?'#333':pal[i%pal.length];};
 
   const tw=document.getElementById('tribes');
+  document.getElementById('tct').textContent=tribes.length;
   let selTribe=null;
   tribes.forEach((t,i)=>{
     const d=document.createElement('div');
     d.className='tr';
-    d.innerHTML='<span class="dot" style="background:'+pal[i]+'"></span>'+
+    d.innerHTML='<span class="dot" style="background:'+pal[i%pal.length]+'"></span>'+
       '<span class="nm">'+t+'</span><span class="ct">'+tc[t]+'</span>';
     d.onclick=()=>{selTribe=selTribe===t?null:t;
       [...tw.children].forEach(c=>c.classList.remove('on'));
@@ -195,6 +198,7 @@ Promise.all([
   },1400);
 
   let tf=d3.zoomIdentity.translate(110,0),hi=null,neigh=new Set(),dragging=false;
+  let dragStart=0,lastTap=0,lastNode=null;
 
   function nodeAt(cx,cy){
     const x=(cx-tf.x)/tf.k, y=(cy-tf.y)/tf.k;
@@ -207,13 +211,13 @@ Promise.all([
   }
 
   // zoom, but let drag win when the pointer is over a node
-  const zoom=d3.zoom().scaleExtent([.12,9])
+  const zoom=d3.zoom().scaleExtent([.58,9])
     .filter(e=>{
       if(e.type==='wheel')return true;
       return nodeAt(e.clientX,e.clientY)===null;
     })
     .on('zoom',e=>{tf=e.transform;draw();});
-  d3.select(cv).call(zoom);
+  d3.select(cv).call(zoom).on('dblclick.zoom',null);
 
   // drag a node — its cluster lags behind and follows
   d3.select(cv).call(d3.drag()
@@ -221,7 +225,9 @@ Promise.all([
     .on('start',e=>{
       if(!e.subject)return;
       dragging=true;
-      sim.alphaTarget(0.34).restart();
+      sim.velocityDecay(0.62);        // sluggish followers = visible trailing
+      sim.alphaTarget(0.55).restart(); // keep chasing the dragged node
+      dragStart=Date.now();
       e.subject.fx=e.subject.x;
       e.subject.fy=e.subject.y;
       cv.style.cursor='grabbing';
@@ -234,10 +240,20 @@ Promise.all([
     .on('end',e=>{
       if(!e.subject)return;
       dragging=false;
+      sim.velocityDecay(0.28);
       sim.alphaTarget(0.012);
       e.subject.fx=null;
       e.subject.fy=null;
       cv.style.cursor='grab';
+      // treat a quick press with no movement as a click
+      if(Date.now()-dragStart<260){
+        const now=Date.now();
+        if(now-lastTap<340 && lastNode===e.subject){
+          window.open(e.subject.fc?'https://warpcast.com/'+e.subject.fc
+                                  :'https://opensea.io/'+e.subject.a,'_blank');
+          lastTap=0; lastNode=null;
+        } else { lastTap=now; lastNode=e.subject; }
+      }
     }));
 
   function dim(n){
@@ -315,12 +331,7 @@ Promise.all([
     }else{cv.style.cursor='grab';tip.style.display='none';}
     draw();
   });
-  cv.addEventListener('dblclick',ev=>{
-    ev.preventDefault();
-    const b=pick(ev);if(!b)return;
-    window.open(b.fc?'https://warpcast.com/'+b.fc:'https://opensea.io/'+b.a,'_blank');
-  });
-  cv.addEventListener('dblclick',e=>e.stopPropagation(),true);
+  cv.addEventListener('dblclick',e=>e.preventDefault());
 
   // ---- find your neighbors ----
   const nbs=document.getElementById('nbs'),qh=document.getElementById('qh');

@@ -29,12 +29,6 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 .strip.hide{opacity:0;transform:translateY(-100%);pointer-events:none}
 .credit{transition:opacity .25s ease}
 .credit.hide{opacity:0}
-.hd{transition:opacity .25s ease,transform .25s ease}
-.hd.hide{opacity:0;transform:translateY(-100%);pointer-events:none}
-.strip{transition:opacity .25s ease,transform .25s ease}
-.strip.hide{opacity:0;transform:translateY(-100%);pointer-events:none}
-.credit{transition:opacity .25s ease}
-.credit.hide{opacity:0}
 .hd{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;
   justify-content:space-between;padding:0 18px;background:rgba(0,0,0,.9);
   border-bottom:1px solid var(--line);z-index:20}
@@ -693,19 +687,6 @@ Promise.all([
     }
     ctx.globalAlpha=1;ctx.restore();
   }
-  // hide header/strip while the user is exploring, bring it back when they stop
-  const chrome=[document.querySelector('.hd'),document.querySelector('.strip'),
-                document.querySelector('.credit')].filter(Boolean);
-  let chromeT=null;
-  function chromeHide(){
-    chrome.forEach(el=>el.classList.add('hide'));
-    clearTimeout(chromeT);
-    chromeT=setTimeout(()=>chrome.forEach(el=>el.classList.remove('hide')),1500);
-  }
-  cv.addEventListener('touchmove',chromeHide,{passive:true});
-  cv.addEventListener('mousedown',chromeHide);
-  cv.addEventListener('wheel',chromeHide,{passive:true});
-
   // hide header/strip while the user is exploring, bring it back when they stop
   const chrome=[document.querySelector('.hd'),document.querySelector('.strip'),
                 document.querySelector('.credit')].filter(Boolean);

@@ -47,7 +47,13 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 .sb::-webkit-scrollbar{width:5px}
 .sb::-webkit-scrollbar-thumb{background:#222}
 .sl{font-size:9px;letter-spacing:2px;color:var(--grey);text-transform:uppercase;
-  padding:0 16px 9px}
+  padding:11px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  user-select:none}
+.sl:hover{color:#8a8a8a}
+.sl .caret{transition:transform .18s ease;color:var(--lime);font-size:10px}
+.sec.closed .caret{transform:rotate(-90deg)}
+.sec.closed .secbody{display:none}
+.secbody{padding-bottom:4px}
 .sl i{font-style:normal;color:var(--lime)}
 .sec{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:16px}
 .sec:last-child{border:none}
@@ -126,6 +132,7 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 .nc-x{position:absolute;top:10px;right:14px;background:none;border:none;color:#555;
   font-size:19px;cursor:pointer;z-index:2;font-family:inherit}
 @media (min-width:761px){.ncard{display:none !important}}
+@media (max-width:760px){#tip{display:none !important}}
 #ld{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
   background:#000;z-index:50;color:var(--lime);font-size:11px;letter-spacing:3px}
 
@@ -190,12 +197,12 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 
 /* mobile */
 #mtog{display:none;position:fixed;bottom:14px;right:14px;z-index:31;background:var(--lime);
-  color:#000;border:none;padding:13px 18px;font-family:inherit;font-size:12px;font-weight:700;
-  letter-spacing:1.5px;cursor:pointer;border-radius:2px;
+  color:#000;border:none;width:48px;height:48px;font-family:inherit;font-size:19px;font-weight:700;
+  cursor:pointer;border-radius:2px;line-height:1;
   box-shadow:0 4px 20px rgba(0,0,0,.7)}
 #fitb{display:none;position:fixed;bottom:14px;left:14px;z-index:31;background:#0a0a0a;
-  color:var(--lime);border:1px solid #2a3300;padding:13px 16px;font-family:inherit;
-  font-size:12px;font-weight:700;letter-spacing:1.5px;cursor:pointer;border-radius:2px}
+  color:var(--lime);border:1px solid #2a3300;width:48px;height:48px;font-family:inherit;
+  font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:2px;line-height:1}
 @media (max-width:760px){#fitb{display:block}}
 @media (max-width:760px){
   .sb{top:auto;bottom:0;left:0;right:0;width:100%;height:64vh;border-right:none;
@@ -241,24 +248,30 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
       <div style="font-size:9px;color:#3a3a3a;margin-top:7px;line-height:1.6">
         most-connected holders first. the full graph is dense on a small screen.</div>
     </div>
-    <div class="sl"><i>01</i> / FIND YOUR NEIGHBORS</div>
+    <div class="sl"><i>01</i> / FIND YOUR NEIGHBORS<span class="caret">▾</span></div>
+    <div class="secbody">
     <input id="q" placeholder="wallet or ens…" autocomplete="off">
     <div id="qh">enter an address to see who collects like you</div>
     <div id="nbs"></div>
   </div>
+</div>
   <div class="sec">
-    <div class="sl"><i>02</i> / TRIBES <span id="tct" style="float:right;color:#4a4a4a"></span></div>
+    <div class="sl"><i>02</i> / TRIBES <span id="tct" style="float:right;color:#4a4a4a"></span><span class="caret">▾</span></div>
+    <div class="secbody">
     <div id="tribes" style="max-height:290px;overflow-y:auto"></div>
   </div>
+</div>
   <div class="sec">
-    <div class="sl"><i>03</i> / COLLECTIONS <span id="cct" style="float:right;color:#4a4a4a"></span></div>
+    <div class="sl"><i>03</i> / COLLECTIONS <span id="cct" style="float:right;color:#4a4a4a"></span><span class="caret">▾</span></div>
+    <div class="secbody">
     <input id="cq" placeholder="creep kids, pudgy, punks…" autocomplete="off">
     <div id="ch">click a collection to light up its holders</div>
     <div id="cols" style="max-height:250px;overflow-y:auto;margin-top:8px"></div>
   </div>
 
+</div>
   <div class="sec">
-    <div class="sl"><i>04</i> / SAME OPERATOR</div>
+    <div class="sl"><i>04</i> / SAME OPERATOR<span class="caret">▾</span></div>
     <div id="farms" style="padding:0 16px;font-size:10px;color:var(--grey);line-height:1.8"></div>
   </div>
 </div>
@@ -309,7 +322,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
   <br><span class="stamp" id="stamp"></span>
 </div>
 
-<button id="mtog">☰ PANEL</button>
+<button id="mtog">☰</button>
 <button id="fitb">FIT</button>
 
 <div class="mask" id="mask"></div>
@@ -698,6 +711,13 @@ Promise.all([
   cv.addEventListener('mousedown',chromeHide);
   cv.addEventListener('wheel',chromeHide,{passive:true});
 
+  // collapsible sections
+  document.querySelectorAll('.sb .sec > .sl').forEach((lab,i)=>{
+    const sec=lab.parentElement;
+    if(MOB0&&i>0)sec.classList.add('closed');
+    lab.onclick=()=>sec.classList.toggle('closed');
+  });
+
   const sbEl=document.querySelector('.sb');
   document.getElementById('mtog').onclick=()=>sbEl.classList.toggle('open');
   const fb=document.getElementById('fitb'); if(fb)fb.onclick=()=>fitView();
@@ -743,6 +763,7 @@ Promise.all([
   }
 
   function ncOpen(me){
+    if(nc.classList.contains('on') && ncAnchor===me) return;   // already showing this one
     dbg('ncOpen '+(me.ens||me.a.slice(0,8)));
     ncAnchor=me;
     ncList=[{o:me,w:1,n:0}].concat(ncNeighbors(me));
@@ -816,6 +837,7 @@ Promise.all([
 
   const tip=document.getElementById('tip');
   function showTip(b,cx,cy){
+    if(MOB0){ dbg('showTip->card '+(b.ens||b.a.slice(0,8))); ncOpen(b); return; }
     tip.style.display='block';
     tip.style.left=Math.min(Math.max(8,cx+14),W-206)+'px';
     tip.style.top=Math.min(Math.max(8,cy+14),H-170)+'px';
@@ -835,6 +857,7 @@ Promise.all([
   }
   const pick=ev=>nodeAt(ev.clientX,ev.clientY);
   cv.addEventListener('mousemove',ev=>{
+    if(MOB0&&nc.classList.contains('on'))return;
     if(dragging){
       tip.style.left=Math.min(ev.clientX+14,W-210)+'px';
       tip.style.top=Math.min(ev.clientY+14,H-160)+'px';

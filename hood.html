@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Hood Nodes · OnChainHoodies Holder Graph</title>
 <meta name="description" content="Every OnChainHoodies holder mapped by what else they collect. Wallet farms resolved into single entities. Refreshed hourly.">
@@ -519,10 +521,12 @@ Promise.all([
       .translate((MOB?0:236)+availW/2+pad-mx*k, (MOB?58:86)+availH/2+pad-my*k)
       .scale(k);
     tf=t;
+    progZoom=true;
     d3.select(cv).call(zoom.transform,t);
+    setTimeout(()=>{progZoom=false;},60);
     draw();
   }
-  let dragStart=0,lastTap=0,lastNode=null,lagSet=null;
+  let dragStart=0,lastTap=0,lastNode=null,lagSet=null,progZoom=false;
   let panVX=0,panVY=0,panLast=null,panRAF=null;
 
   function momentum(){
@@ -578,9 +582,12 @@ Promise.all([
     })
     .on('zoom',e=>{tf=e.transform;draw();})
     .on('end',e=>{
+      if(progZoom)return;
       const c=clampTf(e.transform);
       if(c!==e.transform){
-        d3.select(cv).transition().duration(230).call(zoom.transform,c);
+        progZoom=true;
+        d3.select(cv).transition().duration(230).call(zoom.transform,c)
+          .on('end',()=>{progZoom=false;});
       }
     });
   d3.select(cv).call(zoom).on('dblclick.zoom',null);
@@ -625,16 +632,7 @@ Promise.all([
       sim.alphaTarget(0.012);
       n.fx=null; n.fy=null;
       cv.style.cursor='grab';
-      if(Date.now()-dragStart<300){
-        if(MOB0){ ncOpen(n); }                      // phone: full card
-        else {                                       // desktop: dbl-click opens profile
-          const now=Date.now();
-          if(now-lastTap<340 && lastNode===n){
-            window.open(n.fc?'https://warpcast.com/'+n.fc:'https://opensea.io/'+n.a,'_blank');
-            lastTap=0; lastNode=null;
-          } else { lastTap=now; lastNode=n; }
-        }
-      }
+
     }));
 
   function dim(n){
@@ -723,6 +721,18 @@ Promise.all([
   // ---- hover ----
 
   // ---------- mobile neighbour card ----------
+  const DBG=new URLSearchParams(location.search).get('dbg')==='1';
+  let dbgEl=null;
+  if(DBG){
+    dbgEl=document.createElement('div');
+    dbgEl.style.cssText='position:fixed;left:6px;bottom:70px;z-index:99;background:rgba(0,0,0,.85);'+
+      'color:#ccff00;font:10px ui-monospace,monospace;padding:5px 8px;border:1px solid #2a3300;'+
+      'pointer-events:none;max-width:70vw';
+    dbgEl.textContent='dbg on · mob='+MOB0+' k='+tf.k.toFixed(2);
+    document.body.appendChild(dbgEl);
+  }
+  function dbg(m){ if(dbgEl) dbgEl.textContent=m+' | k='+tf.k.toFixed(2); }
+
   const nc=document.getElementById('ncard');
   let ncList=[], ncIdx=0, ncAnchor=null;
 
@@ -733,11 +743,13 @@ Promise.all([
   }
 
   function ncOpen(me){
+    dbg('ncOpen '+(me.ens||me.a.slice(0,8)));
     ncAnchor=me;
     ncList=[{o:me,w:1,n:0}].concat(ncNeighbors(me));
     ncIdx=0;
     ncRender();
     nc.classList.add('on');
+    dbg('card open · '+(ncList.length-1)+' neighbors · cls='+nc.className);
   }
   function ncClose(){
     nc.classList.remove('on');
@@ -859,28 +871,42 @@ Promise.all([
     panLast={x:t.clientX,y:t.clientY,t:now};
   },{passive:true});
 
+  // explicit tap tracking — does not depend on d3.drag event order
+  let tsX=0,tsY=0,tsT=0,tsMoved=false;
+  cv.addEventListener('touchstart',ev=>{
+    if(ev.touches.length!==1){tsT=0;return;}
+    tsX=ev.touches[0].clientX; tsY=ev.touches[0].clientY;
+    tsT=Date.now(); tsMoved=false;
+  },{passive:true});
+
+  cv.addEventListener('touchmove',ev=>{
+    if(!tsT||ev.touches.length!==1)return;
+    if(Math.hypot(ev.touches[0].clientX-tsX, ev.touches[0].clientY-tsY)>12) tsMoved=true;
+  },{passive:true});
+
   cv.addEventListener('touchend',ev=>{
-    if(!dragging&&panLast&&(Math.abs(panVX)>2.2||Math.abs(panVY)>2.2)){
+    if(panLast&&!dragging&&(Math.abs(panVX)>2.2||Math.abs(panVY)>2.2)){
       if(panRAF)cancelAnimationFrame(panRAF);
       panRAF=requestAnimationFrame(momentum);
     }
     panLast=null;
-    if(dragging)return;
+    if(!tsT)return;
+    const dur=Date.now()-tsT, moved=tsMoved;
+    tsT=0;
+    if(moved||dur>420)return;              // a drag or a long press, not a tap
     const t=ev.changedTouches[0];
     const b=nodeAt(t.clientX,t.clientY);
-    if(!b){
-      const now=Date.now();
-      if(now-lastTap<330){
-        const gx=(t.clientX-tf.x)/tf.k, gy=(t.clientY-tf.y)/tf.k;
-        const nk = tf.k<1.6 ? Math.min(3.2,tf.k*2.3) : 0.6;
-        const nt=d3.zoomIdentity.translate(t.clientX-gx*nk, t.clientY-gy*nk).scale(nk);
-        d3.select(cv).transition().duration(300).call(zoom.transform, nk<1 ? clampTf(nt) : nt);
-        lastTap=0;
-      } else lastTap=now;
-      return;
-    }
-    tip.style.display='none';
-    ncOpen(b);
+    dbg('tap '+(b?('node '+(b.ens||b.a.slice(0,8))):'empty')+' d='+dur);
+    if(b){ tip.style.display='none'; ncOpen(b); return; }
+    // empty space: double-tap zooms
+    const now=Date.now();
+    if(now-lastTap<330){
+      const gx=(t.clientX-tf.x)/tf.k, gy=(t.clientY-tf.y)/tf.k;
+      const nk = tf.k<1.6 ? Math.min(3.2,tf.k*2.3) : 0.8;
+      const nt=d3.zoomIdentity.translate(t.clientX-gx*nk, t.clientY-gy*nk).scale(nk);
+      d3.select(cv).transition().duration(300).call(zoom.transform,nt);
+      lastTap=0;
+    } else lastTap=now;
   },{passive:true});
 
   // ---- find your neighbors ----

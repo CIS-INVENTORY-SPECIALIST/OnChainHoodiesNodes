@@ -72,6 +72,7 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 
 #tip{position:fixed;display:none;background:#050505;border:1px solid var(--lime);
   padding:0;z-index:40;pointer-events:none;width:196px}
+#tip a{pointer-events:auto}
 #tip .th{display:flex;gap:8px;padding:9px;border-bottom:1px solid #1a1a1a;align-items:center}
 #tip img{width:40px;height:40px;image-rendering:pixelated;background:#000;flex:none}
 #tip .tn{font-size:11px;color:var(--lime);word-break:break-all;line-height:1.4}
@@ -83,6 +84,40 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 .lgd{position:fixed;bottom:14px;right:16px;font-size:9px;color:#333;text-align:right;
   line-height:1.9;z-index:12;letter-spacing:.5px}
 .lgd b{color:var(--dim);font-weight:400}
+
+/* full-bleed neighbour card */
+.ncard{position:fixed;left:0;right:0;bottom:0;height:64vh;background:rgba(4,5,4,.97);
+  border-top:1px solid var(--lime);z-index:70;display:none;flex-direction:column;
+  transform:translateY(100%);transition:transform .26s cubic-bezier(.3,.9,.3,1)}
+.ncard.on{display:flex;transform:translateY(0)}
+.nc-grip{width:40px;height:3px;background:#2c2c2c;border-radius:2px;margin:9px auto 0;flex:none}
+.nc-top{display:flex;align-items:center;gap:14px;padding:16px 18px 12px;flex:none}
+.nc-img{width:78px;height:78px;image-rendering:pixelated;background:#000;flex:none;
+  border:1px solid #223300}
+.nc-id{flex:1;min-width:0}
+.nc-name{font-size:15px;color:var(--lime);font-weight:700;word-break:break-all;line-height:1.3}
+.nc-sub{font-size:10px;color:#5a5a5a;margin-top:5px;letter-spacing:.6px}
+.nc-body{flex:1;overflow-y:auto;padding:0 18px}
+.nc-row{display:flex;justify-content:space-between;padding:10px 0;
+  border-bottom:1px solid #121212;font-size:11px}
+.nc-row span:first-child{color:#5a5a5a;letter-spacing:1px;text-transform:uppercase;font-size:9px}
+.nc-row span:last-child{color:#dcdcdc}
+.nc-tag{display:inline-block;background:#131600;border:1px solid #2d3600;color:var(--lime);
+  padding:2px 8px;font-size:9px;margin-top:2px}
+.nc-warn{color:#ff5555}
+.nc-act{display:flex;gap:8px;padding:12px 18px;flex:none;border-top:1px solid #141414}
+.nc-btn{flex:1;background:var(--lime);color:#000;border:none;padding:13px;font-family:inherit;
+  font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;text-align:center;
+  text-decoration:none;display:block}
+.nc-btn.ghost{background:#0a0a0a;color:var(--lime);border:1px solid #2a3300;flex:0 0 96px}
+.nc-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 18px 0;flex:none}
+.nc-arrow{background:#0a0a0a;border:1px solid #232323;color:var(--lime);width:44px;height:38px;
+  font-size:16px;cursor:pointer;font-family:inherit}
+.nc-arrow:disabled{opacity:.28;color:#555}
+.nc-pos{font-size:9.5px;color:#4a4a4a;letter-spacing:1.4px}
+.nc-x{position:absolute;top:10px;right:14px;background:none;border:none;color:#555;
+  font-size:19px;cursor:pointer;z-index:2;font-family:inherit}
+@media (min-width:761px){.ncard{display:none !important}}
 #ld{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
   background:#000;z-index:50;color:var(--lime);font-size:11px;letter-spacing:3px}
 
@@ -227,6 +262,29 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
   DRAG A NODE <b>= MOVE THE CLUSTER</b><br>DOUBLE-TAP A NODE <b>= OPEN PROFILE</b><br>SEARCH YOURSELF <b>= FULL NEIGHBOR LIST</b>
 </div>
 <div id="tip"></div>
+
+<div class="ncard" id="ncard">
+  <button class="nc-x" id="ncx">✕</button>
+  <div class="nc-grip"></div>
+  <div class="nc-nav">
+    <button class="nc-arrow" id="ncprev">‹</button>
+    <div class="nc-pos" id="ncpos"></div>
+    <button class="nc-arrow" id="ncnext">›</button>
+  </div>
+  <div class="nc-top">
+    <img class="nc-img" id="ncimg">
+    <div class="nc-id">
+      <div class="nc-name" id="ncname"></div>
+      <div class="nc-sub" id="ncsub"></div>
+    </div>
+  </div>
+  <div class="nc-body" id="ncbody"></div>
+  <div class="nc-act">
+    <a class="nc-btn" id="ncopen" target="_blank">OPEN PROFILE</a>
+    <button class="nc-btn ghost" id="ncroot">EXPLORE</button>
+  </div>
+</div>
+
 
 <div class="strip">
   <div><b id="k1">—</b> WALLETS</div>
@@ -395,7 +453,7 @@ Promise.all([
     '<span style="color:#ff5555">'+farms.reduce((s,f)=>s+f.wallets,0)+
     ' wallets = '+farms.length+' people</span>';
 
-  const rad=n=>(innerWidth<760?5.5:3)+Math.sqrt(n.hoodies||1)*(innerWidth<760?2.2:2.4);
+  const rad=n=>(innerWidth<760?4:3)+Math.sqrt(n.hoodies||1)*(innerWidth<760?3.1:2.4);
 
   // ---- hoodie sprites ----
   const imgs=new Map();
@@ -409,10 +467,10 @@ Promise.all([
   });
 
   const sim=d3.forceSimulation(nodes)
-    .force('link',d3.forceLink(links).distance(d=>(MOB0?86:40)*(1-d.w)+(MOB0?26:10)).strength(d=>Math.min(d.w*(MOB0?1.1:1.7),.9)))
-    .force('charge',d3.forceManyBody().strength(MOB0?-190:-34).distanceMax(MOB0?620:380))
+    .force('link',d3.forceLink(links).distance(d=>(MOB0?52:40)*(1-d.w)+(MOB0?13:10)).strength(d=>Math.min(d.w*1.7,.9)))
+    .force('charge',d3.forceManyBody().strength(MOB0?-62:-34).distanceMax(MOB0?440:380))
     .force('center',d3.forceCenter(W/2+110,H/2).strength(0.045))
-    .force('collide',d3.forceCollide(d=>rad(d)*(MOB0?1.85:1.15)+(MOB0?9:2.5)).strength(1).iterations(3))
+    .force('collide',d3.forceCollide(d=>rad(d)*1.12+(MOB0?3.2:2.5)).strength(1).iterations(3))
     .alphaDecay(0.015)
     .velocityDecay(0.28);
 
@@ -547,7 +605,7 @@ Promise.all([
       ctx.globalAlpha=d?0.11:1;
       const im=imgs.get(n.i);
       if(im&&tf.k>0.34){
-        const s=r*(MOB?1.72:2.1);
+        const s=r*2.05;
         ctx.imageSmoothingEnabled=false;
         ctx.drawImage(im,n.x-s/2,n.y-s/2,s,s);
         if(on||n.wallets>1){
@@ -605,6 +663,87 @@ Promise.all([
   addEventListener('resize',()=>{size();draw();});
 
   // ---- hover ----
+
+  // ---------- mobile neighbour card ----------
+  const nc=document.getElementById('ncard');
+  let ncList=[], ncIdx=0, ncAnchor=null;
+
+  function ncNeighbors(me){
+    return links.filter(l=>l.source===me||l.target===me)
+      .map(l=>({o:l.source===me?l.target:l.source,w:l.w,n:l.n}))
+      .sort((a,b)=>b.w-a.w);
+  }
+
+  function ncOpen(me){
+    ncAnchor=me;
+    ncList=[{o:me,w:1,n:0}].concat(ncNeighbors(me));
+    ncIdx=0;
+    ncRender();
+    nc.classList.add('on');
+  }
+  function ncClose(){
+    nc.classList.remove('on');
+    neigh=new Set(); hi=null; draw();
+  }
+  function ncGo(d){
+    const i=ncIdx+d;
+    if(i<0||i>=ncList.length)return;
+    ncIdx=i; ncRender();
+  }
+  function ncRender(){
+    const it=ncList[ncIdx], b=it.o;
+    document.getElementById('ncimg').src = b.token?('img/'+b.token+'.svg'):'logo.svg';
+    document.getElementById('ncname').textContent = b.ens||(b.a.slice(0,12)+'…'+b.a.slice(-4));
+    document.getElementById('ncsub').textContent =
+      (ncIdx===0?'YOU SELECTED THIS HOLDER':'NEIGHBOR OF '+
+        (ncAnchor.ens||ncAnchor.a.slice(0,8)+'…')).toUpperCase();
+    document.getElementById('ncpos').textContent =
+      ncIdx===0 ? 'SWIPE TO SEE '+(ncList.length-1)+' NEIGHBORS'
+                : ncIdx+' / '+(ncList.length-1);
+    document.getElementById('ncprev').disabled = ncIdx===0;
+    document.getElementById('ncnext').disabled = ncIdx>=ncList.length-1;
+
+    const rows=[
+      ['hoodies held', b.hoodies],
+      ['collections', b.cols],
+      ['neighbors', b.deg]
+    ];
+    if(ncIdx>0) rows.unshift(['match', Math.round(it.w*100)+'%  ·  '+it.n+' shared collections']);
+    let html=rows.map(r=>'<div class="nc-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');
+    if(b.tribe) html+='<div class="nc-row"><span>tribe</span><span class="nc-tag">'+b.tribe+'</span></div>';
+    if(b.wallets>1) html+='<div class="nc-row"><span>linked wallets</span><span class="nc-warn">'+b.wallets+' wallets, one operator</span></div>';
+    if(b.fc) html+='<div class="nc-row"><span>farcaster</span><span style="color:#8a63d2">@'+b.fc+'</span></div>';
+    document.getElementById('ncbody').innerHTML=html;
+
+    document.getElementById('ncopen').href =
+      b.fc?('https://warpcast.com/'+b.fc):('https://opensea.io/'+b.a);
+
+    // graph travels to whoever the card is showing
+    hi=b;
+    neigh=new Set([ncAnchor.i].concat(ncNeighbors(ncAnchor).map(x=>x.o.i)));
+    const k=Math.max(tf.k,1.5);
+    tf=d3.zoomIdentity.translate(W/2-b.x*k, (H*0.30)-b.y*k).scale(k);
+    d3.select(cv).call(zoom.transform,tf);
+    draw();
+  }
+
+  document.getElementById('ncx').onclick=ncClose;
+  document.getElementById('ncprev').onclick=()=>ncGo(-1);
+  document.getElementById('ncnext').onclick=()=>ncGo(1);
+  document.getElementById('ncroot').onclick=()=>{ ncOpen(ncList[ncIdx].o); };
+
+  // swipe the card left/right
+  let swX=0,swY=0,swT=0;
+  nc.addEventListener('touchstart',e=>{
+    swX=e.touches[0].clientX; swY=e.touches[0].clientY; swT=Date.now();
+  },{passive:true});
+  nc.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-swX, dy=e.changedTouches[0].clientY-swY;
+    if(Date.now()-swT>700)return;
+    if(Math.abs(dx)>46 && Math.abs(dx)>Math.abs(dy)*1.4){ ncGo(dx<0?1:-1); }
+    else if(dy>70 && Math.abs(dy)>Math.abs(dx)){ ncClose(); }
+  },{passive:true});
+
   const tip=document.getElementById('tip');
   function showTip(b,cx,cy){
     tip.style.display='block';
@@ -618,6 +757,10 @@ Promise.all([
       (b.wallets>1?'<br><span style="color:#ff3b3b">'+b.wallets+' linked wallets</span>':'')+
       (b.tribe?'<br><span class="tg">'+b.tribe+'</span>':'')+
       (b.fc?'<br><span style="color:#8a63d2">farcaster: '+b.fc+'</span>':'')+
+      '<div style="margin-top:9px"><a href="'+(b.fc?('https://warpcast.com/'+b.fc):('https://opensea.io/'+b.a))+
+      '" target="_blank" style="display:block;text-align:center;background:var(--lime);color:#000;'+
+      'text-decoration:none;padding:7px;font-size:9.5px;font-weight:700;letter-spacing:1.2px;'+
+      'pointer-events:auto">OPEN PROFILE</a></div>'+
       '</div>';
   }
   const pick=ev=>nodeAt(ev.clientX,ev.clientY);
@@ -651,15 +794,9 @@ Promise.all([
     if(dragging)return;
     const t=ev.changedTouches[0];
     const b=nodeAt(t.clientX,t.clientY);
-    if(!b){hi=null;tip.style.display='none';tNode=null;draw();return;}
-    hi=b;
-    const now=Date.now();
-    if(tNode===b&&now-tTap<600){
-      window.open(b.fc?'https://warpcast.com/'+b.fc:'https://opensea.io/'+b.a,'_blank');
-      tTap=0;tNode=null;
-    }else{tTap=now;tNode=b;}
-    showTip(b,t.clientX,t.clientY);
-    draw();
+    if(!b)return;
+    tip.style.display='none';
+    ncOpen(b);
   },{passive:true});
 
   // ---- find your neighbors ----

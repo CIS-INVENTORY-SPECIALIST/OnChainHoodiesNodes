@@ -23,6 +23,12 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 #c{position:fixed;inset:0;width:100vw;height:100vh;display:block;cursor:grab}
 #c:active{cursor:grabbing}
 
+.hd{transition:opacity .25s ease,transform .25s ease}
+.hd.hide{opacity:0;transform:translateY(-100%);pointer-events:none}
+.strip{transition:opacity .25s ease,transform .25s ease}
+.strip.hide{opacity:0;transform:translateY(-100%);pointer-events:none}
+.credit{transition:opacity .25s ease}
+.credit.hide{opacity:0}
 .hd{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;
   justify-content:space-between;padding:0 18px;background:rgba(0,0,0,.9);
   border-bottom:1px solid var(--line);z-index:20}
@@ -488,20 +494,32 @@ Promise.all([
 
   // frame the whole graph once the layout settles
   function fitView(pad){
-    pad=pad||(MOB?18:70);
+    pad=pad||(MOB?16:70);
+    if(!nodes.length)return;
+    // centroid
+    let cx=0,cy=0;
+    for(const n of nodes){cx+=n.x;cy+=n.y;}
+    cx/=nodes.length; cy/=nodes.length;
+    // fit the dense core (closest 78% to centroid) so outliers don't force a tiny zoom
+    const d=nodes.map(n=>Math.hypot(n.x-cx,n.y-cy)).sort((a,b)=>a-b);
+    const cut=d[Math.floor(d.length*(MOB?0.72:0.86))]||d[d.length-1];
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
     for(const n of nodes){
+      if(Math.hypot(n.x-cx,n.y-cy)>cut)continue;
       if(n.x<x0)x0=n.x; if(n.x>x1)x1=n.x;
       if(n.y<y0)y0=n.y; if(n.y>y1)y1=n.y;
     }
-    if(x1<=x0||y1<=y0)return;
-    const availW=W-(MOB?0:236)-pad*2, availH=H-(MOB?92:120)-pad*2;
-    const k=Math.max(0.58,Math.min(2.6, Math.min(availW/(x1-x0), availH/(y1-y0))));
-    const cx=(x0+x1)/2, cy=(y0+y1)/2;
-    tf=d3.zoomIdentity
-      .translate((MOB?0:236)+availW/2+pad-cx*k, (MOB?52:86)+availH/2+pad-cy*k)
+    if(x1<=x0||y1<=y0){x0=cx-200;x1=cx+200;y0=cy-200;y1=cy+200;}
+    const availW=W-(MOB?0:236)-pad*2, availH=H-(MOB?128:120)-pad*2;
+    let k=Math.min(availW/(x1-x0), availH/(y1-y0));
+    // never start so far out that hoodies are unreadable
+    k=Math.max(MOB?1.05:0.6, Math.min(MOB?2.4:2.6, k));
+    const mx=(x0+x1)/2, my=(y0+y1)/2;
+    const t=d3.zoomIdentity
+      .translate((MOB?0:236)+availW/2+pad-mx*k, (MOB?58:86)+availH/2+pad-my*k)
       .scale(k);
-    d3.select(cv).call(zoom.transform,tf);
+    tf=t;
+    d3.select(cv).call(zoom.transform,t);
     draw();
   }
   let dragStart=0,lastTap=0,lastNode=null,lagSet=null;
@@ -666,6 +684,19 @@ Promise.all([
     }
     ctx.globalAlpha=1;ctx.restore();
   }
+  // hide header/strip while the user is exploring, bring it back when they stop
+  const chrome=[document.querySelector('.hd'),document.querySelector('.strip'),
+                document.querySelector('.credit')].filter(Boolean);
+  let chromeT=null;
+  function chromeHide(){
+    chrome.forEach(el=>el.classList.add('hide'));
+    clearTimeout(chromeT);
+    chromeT=setTimeout(()=>chrome.forEach(el=>el.classList.remove('hide')),1500);
+  }
+  cv.addEventListener('touchmove',chromeHide,{passive:true});
+  cv.addEventListener('mousedown',chromeHide);
+  cv.addEventListener('wheel',chromeHide,{passive:true});
+
   const sbEl=document.querySelector('.sb');
   document.getElementById('mtog').onclick=()=>sbEl.classList.toggle('open');
   const fb=document.getElementById('fitb'); if(fb)fb.onclick=()=>fitView();

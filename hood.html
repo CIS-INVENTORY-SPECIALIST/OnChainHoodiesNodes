@@ -225,8 +225,8 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 
 <div class="sb">
   <div class="sec">
-    <div class="sl"><i>00</i> / VIEW</div>
-    <div id="dens" style="padding:0 16px 14px">
+    <div class="sl" style="display:none"><i>00</i> / VIEW</div>
+    <div id="dens" style="display:none;padding:0 16px 14px">
       <button id="dtog" style="width:100%;background:#0a0a0a;border:1px solid #2a3300;
         color:var(--lime);padding:10px;font-family:inherit;font-size:10px;letter-spacing:1.4px;
         cursor:pointer"><span id="dlabel">SHOWING TOP 140 · TAP FOR ALL</span></button>
@@ -347,12 +347,8 @@ Promise.all([
   const OWN=T.owners||{},FAR=T.farcaster||{};
 
   const MOB0=innerWidth<760;
-  let showAll=!MOB0||new URLSearchParams(location.search).get('all')==='1';
-  const MOB_CAP=140;
   const allConnected=G.nodes.filter(n=>n.deg>0);
-  const nodes=(showAll?allConnected
-      :[...allConnected].sort((a,b)=>b.deg-a.deg).slice(0,MOB_CAP)
-    ).map(n=>Object.assign({},n));
+  const nodes=allConnected.map(n=>Object.assign({},n));
   const keep=new Set(nodes.map(n=>n.i));
   const rm=new Map(nodes.map((n,k)=>[n.i,k]));
   const links=G.edges.filter(e=>keep.has(e.s)&&keep.has(e.t))
@@ -492,7 +488,7 @@ Promise.all([
 
   // frame the whole graph once the layout settles
   function fitView(pad){
-    pad=pad||(MOB?26:70);
+    pad=pad||(MOB?18:70);
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
     for(const n of nodes){
       if(n.x<x0)x0=n.x; if(n.x>x1)x1=n.x;
@@ -509,6 +505,18 @@ Promise.all([
     draw();
   }
   let dragStart=0,lastTap=0,lastNode=null,lagSet=null;
+  let panVX=0,panVY=0,panLast=null,panRAF=null;
+
+  function momentum(){
+    panVX*=0.93; panVY*=0.93;
+    if(Math.abs(panVX)<0.35&&Math.abs(panVY)<0.35){panRAF=null;
+      const c=clampTf(tf);
+      if(c!==tf){d3.select(cv).transition().duration(220).call(zoom.transform,c);}
+      return;}
+    const t=d3.zoomIdentity.translate(tf.x+panVX,tf.y+panVY).scale(tf.k);
+    tf=t; d3.select(cv).call(zoom.transform,t);
+    panRAF=requestAnimationFrame(momentum);
+  }
 
   function nodeAt(cx,cy){
     const x=(cx-tf.x)/tf.k, y=(cy-tf.y)/tf.k;
@@ -521,12 +529,42 @@ Promise.all([
   }
 
   // zoom, but let drag win when the pointer is over a node
-  const zoom=d3.zoom().scaleExtent([.34,9])
+  function graphBounds(){
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    for(const n of nodes){
+      if(n.x<x0)x0=n.x; if(n.x>x1)x1=n.x;
+      if(n.y<y0)y0=n.y; if(n.y>y1)y1=n.y;
+    }
+    return {x0:x0,y0:y0,x1:x1,y1:y1};
+  }
+  // keep at least this much of the cloud on screen at all times
+  function clampTf(t){
+    const b=graphBounds();
+    if(b.x1<=b.x0)return t;
+    const sx0=t.applyX(b.x0), sx1=t.applyX(b.x1);
+    const sy0=t.applyY(b.y0), sy1=t.applyY(b.y1);
+    const leftLim=(MOB0?0:236), topLim=(MOB0?86:120), botLim=H-(MOB0?86:40);
+    const keep=Math.min(160,(sx1-sx0)*0.55), keepY=Math.min(160,(sy1-sy0)*0.55);
+    let dx=0,dy=0;
+    if(sx0>W-keep)      dx=(W-keep)-sx0;
+    else if(sx1<leftLim+keep) dx=(leftLim+keep)-sx1;
+    if(sy0>botLim-keepY) dy=(botLim-keepY)-sy0;
+    else if(sy1<topLim+keepY) dy=(topLim+keepY)-sy1;
+    return (dx||dy)? d3.zoomIdentity.translate(t.x+dx,t.y+dy).scale(t.k) : t;
+  }
+
+  const zoom=d3.zoom().scaleExtent([.34,9]).wheelDelta(e=>-e.deltaY*(e.deltaMode===1?0.05:e.ctrlKey?0.012:0.0022))
     .filter(e=>{
       if(e.type==='wheel')return true;
       return nodeAt(e.clientX,e.clientY)===null;
     })
-    .on('zoom',e=>{tf=e.transform;draw();});
+    .on('zoom',e=>{tf=e.transform;draw();})
+    .on('end',e=>{
+      const c=clampTf(e.transform);
+      if(c!==e.transform){
+        d3.select(cv).transition().duration(230).call(zoom.transform,c);
+      }
+    });
   d3.select(cv).call(zoom).on('dblclick.zoom',null);
 
   // drag a node — its cluster lags behind and follows
@@ -628,27 +666,13 @@ Promise.all([
     }
     ctx.globalAlpha=1;ctx.restore();
   }
-  const dt=document.getElementById('dtog');
-  if(dt){
-    if(!MOB0){document.getElementById('dens').style.display='none';}
-    const dl=document.getElementById('dlabel');
-    if(dl)dl.textContent = showAll
-      ? 'SHOWING ALL '+allConnected.length+' · TAP FOR TOP 140'
-      : 'SHOWING TOP '+MOB_CAP+' OF '+allConnected.length+' · TAP FOR ALL';
-    dt.onclick=()=>{
-      const url=new URL(location.href);
-      url.searchParams.set('all', showAll?'0':'1');
-      location.href=url.toString();
-    };
-    if(new URLSearchParams(location.search).get('all')==='1'&&!showAll){
-      // handled on load below
-    }
-  }
-
   const sbEl=document.querySelector('.sb');
   document.getElementById('mtog').onclick=()=>sbEl.classList.toggle('open');
   const fb=document.getElementById('fitb'); if(fb)fb.onclick=()=>fitView();
-  addEventListener('resize',()=>{size();fitView();});
+  let rt=null;
+  function reflow(){ clearTimeout(rt); rt=setTimeout(()=>{size();fitView();},260); }
+  addEventListener('resize',reflow);
+  addEventListener('orientationchange',()=>{ setTimeout(reflow,120); });
   cv.addEventListener('touchstart',()=>{if(sbEl.classList.contains('open'))sbEl.classList.remove('open');});
 
   sim.on('tick',()=>{
@@ -790,11 +814,37 @@ Promise.all([
 
   // touch: tap a node to inspect, tap it again to open
   let tTap=0,tNode=null;
+  cv.addEventListener('touchmove',ev=>{
+    if(dragging||ev.touches.length!==1)return;
+    const t=ev.touches[0], now=Date.now();
+    if(panLast){
+      const dt=Math.max(1,now-panLast.t);
+      panVX=(t.clientX-panLast.x)/dt*13;
+      panVY=(t.clientY-panLast.y)/dt*13;
+    }
+    panLast={x:t.clientX,y:t.clientY,t:now};
+  },{passive:true});
+
   cv.addEventListener('touchend',ev=>{
+    if(!dragging&&panLast&&(Math.abs(panVX)>2.2||Math.abs(panVY)>2.2)){
+      if(panRAF)cancelAnimationFrame(panRAF);
+      panRAF=requestAnimationFrame(momentum);
+    }
+    panLast=null;
     if(dragging)return;
     const t=ev.changedTouches[0];
     const b=nodeAt(t.clientX,t.clientY);
-    if(!b)return;
+    if(!b){
+      const now=Date.now();
+      if(now-lastTap<330){
+        const gx=(t.clientX-tf.x)/tf.k, gy=(t.clientY-tf.y)/tf.k;
+        const nk = tf.k<1.6 ? Math.min(3.2,tf.k*2.3) : 0.6;
+        const nt=d3.zoomIdentity.translate(t.clientX-gx*nk, t.clientY-gy*nk).scale(nk);
+        d3.select(cv).transition().duration(300).call(zoom.transform, nk<1 ? clampTf(nt) : nt);
+        lastTap=0;
+      } else lastTap=now;
+      return;
+    }
     tip.style.display='none';
     ncOpen(b);
   },{passive:true});

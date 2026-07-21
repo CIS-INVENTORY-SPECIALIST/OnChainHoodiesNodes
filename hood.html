@@ -88,7 +88,7 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
   padding:0;z-index:40;pointer-events:none;width:196px}
 #tip a{pointer-events:auto}
 #tip .th{display:flex;gap:8px;padding:9px;border-bottom:1px solid #1a1a1a;align-items:center}
-#tip img{width:40px;height:40px;image-rendering:pixelated;background:#000;flex:none}
+#tip img{width:40px;height:40px;image-rendering:pixelated;-ms-interpolation-mode:nearest-neighbor;background:#000;flex:none}
 #tip .tn{font-size:11px;color:var(--lime);word-break:break-all;line-height:1.4}
 #tip .tb{padding:8px 9px;font-size:10px;color:#999;line-height:1.75}
 #tip .tb b{color:#e8e8e8;font-weight:400}
@@ -106,8 +106,8 @@ html,body{height:100%;background:var(--bg);color:#e8e8e8;overflow:hidden;
 .ncard.on{display:flex;transform:translateY(0)}
 .nc-grip{width:40px;height:3px;background:#2c2c2c;border-radius:2px;margin:9px auto 0;flex:none}
 .nc-top{display:flex;align-items:center;gap:14px;padding:16px 18px 12px;flex:none}
-.nc-img{width:78px;height:78px;image-rendering:pixelated;background:#000;flex:none;
-  border:1px solid #223300}
+.nc-img{width:80px;height:80px;image-rendering:pixelated;-ms-interpolation-mode:nearest-neighbor;
+  background:#000;flex:none;border:1px solid #223300}
 .nc-id{flex:1;min-width:0}
 .nc-name{font-size:15px;color:var(--lime);font-weight:700;word-break:break-all;line-height:1.3}
 .nc-sub{font-size:10px;color:#5a5a5a;margin-top:5px;letter-spacing:.6px}
@@ -188,7 +188,7 @@ tbody tr:hover{background:#0c0c0c}
 tbody tr:hover td{color:#e8e8e8}
 td.id{color:var(--lime)}
 td.n{text-align:right;font-variant-numeric:tabular-nums}
-.hz{width:22px;height:22px;image-rendering:pixelated;display:block;background:#000}
+.hz{width:20px;height:20px;image-rendering:pixelated;display:block;background:#000}
 .bar{display:inline-block;height:4px;background:var(--lime);vertical-align:middle;
   margin-right:6px;min-width:2px}
 .fcb{color:#8a63d2}
@@ -354,7 +354,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
-let W=innerWidth,H=innerHeight,DPR=Math.min(devicePixelRatio||1,2);
+let W=innerWidth,H=innerHeight,DPR=Math.min(devicePixelRatio||1,3);
 function size(){W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;
   ctx.setTransform(DPR,0,0,DPR,0,0);}
 size();
@@ -473,13 +473,23 @@ Promise.all([
   const rad=n=>(innerWidth<760?4:3)+Math.sqrt(n.hoodies||1)*(innerWidth<760?3.1:2.4);
 
   // ---- hoodie sprites ----
-  const imgs=new Map();
+  const NAT=20;                     // hoodies are a 20x20 pixel grid
+  const imgs=new Map();             // node id -> offscreen canvas at native res
   let loaded=0;
   nodes.forEach(n=>{
     if(!n.token)return;
     const im=new Image();
     im.crossOrigin='anonymous';
-    im.onload=()=>{imgs.set(n.i,im);loaded++;if(loaded%40===0)draw();};
+    im.onload=()=>{
+      // rasterize once at exactly one source pixel per canvas pixel
+      const oc=document.createElement('canvas');
+      oc.width=NAT; oc.height=NAT;
+      const octx=oc.getContext('2d');
+      octx.imageSmoothingEnabled=false;
+      octx.drawImage(im,0,0,NAT,NAT);
+      imgs.set(n.i,oc);
+      loaded++; if(loaded%40===0)draw();
+    };
     im.src='img/'+n.token+'.svg';
   });
 
@@ -675,14 +685,19 @@ Promise.all([
       ctx.globalAlpha=d?0.11:1;
       const im=imgs.get(n.i);
       if(im&&tf.k>0.34){
-        const s=r*2.05;
+        // snap to a whole number of source-pixels-per-screen-pixel so the grid stays even
+        const wantDev = r*2.05*tf.k*DPR;                 // desired size in device px
+        let mult = Math.max(1, Math.round(wantDev/NAT)); // integer scale factor
+        const s = (mult*NAT)/(tf.k*DPR);                 // back to graph units
+        // snap the top-left to a whole device pixel
+        const sx = Math.round((n.x - s/2)*tf.k*DPR)/(tf.k*DPR);
+        const sy = Math.round((n.y - s/2)*tf.k*DPR)/(tf.k*DPR);
         ctx.imageSmoothingEnabled=false;
-        ctx.drawImage(im,n.x-s/2,n.y-s/2,s,s);
+        ctx.drawImage(im,sx,sy,s,s);
         if(on||n.wallets>1){
-          ctx.strokeStyle=n.wallets>1?'#ff3b3b':'var(--lime)';
           ctx.strokeStyle=n.wallets>1?'#ff3b3b':'#ccff00';
-          ctx.lineWidth=1.4/tf.k;
-          ctx.strokeRect(n.x-s/2,n.y-s/2,s,s);
+          ctx.lineWidth=Math.max(1,Math.round(1.5*DPR))/(tf.k*DPR);
+          ctx.strokeRect(sx,sy,s,s);
         }
       }else{
         ctx.beginPath();ctx.arc(n.x,n.y,r,0,6.284);
